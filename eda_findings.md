@@ -66,3 +66,9 @@
 - Generate `predicted_posted_rate` for all **12,000** rows in the separate unlabeled validation file, retaining `load_id` in `final_validation_predictions`.
 - As in the model comparison, negative `weight` values and derived `weight_per_mile` values are treated as missing in the model input copies; original datasets remain unchanged.
 - The final validation set has no target labels, so these predictions are not scored here. The holdout metrics above remain the model-selection estimate; the full-data model is for final inference.
+
+## December candidate chart
+
+- The scorer validated the 12,000 final validation predictions and 31 daily December predictions, then generated the candidate chart.
+
+![Candidate December predicted load rate](scorer_results/candidate_december.png)
