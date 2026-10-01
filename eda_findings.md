@@ -36,3 +36,33 @@
 - Added `lane` by combining pickup and delivery city names (for example, `Richmond_Baltimore`).
 - For CatBoost, `cat_features` identifies `pickup`, `delivery`, `equipment`, and `lane`; matching feature matrices are prepared for the chronological train/holdout and final unlabeled validation set.
 - For other models, a `ColumnTransformer` one-hot encodes those same categorical features with `handle_unknown="ignore"` and passes numeric features through. It is fit only on the chronological training partition, then applied to both holdout and final validation data. The resulting sparse-compatible matrices each have **4,144 features**.
+
+## Linear regression baseline
+
+- Fit `LinearRegression` on the chronological training partition (**38,477** rows; Jan-Aug 2025) and evaluated on the held-out future period (**9,523** rows; Sep-Oct 2025).
+- The model uses the engineered numeric features and one-hot-encoded `pickup`, `delivery`, `equipment`, and `lane`; the encoder and numeric median imputer are fit on the training partition only.
+- For this baseline only, negative `weight` values and their derived `weight_per_mile` values are treated as missing, then imputed with training-partition numeric medians. Original source data is not overwritten. This is a modeling assumption pending confirmation of those source records.
+- Holdout metrics: **MAE $187.14**, **RMSE $649.07**, **MAPE 8.37%**. MAPE is reported as the mean absolute percentage error; the high RMSE relative to MAE suggests some larger errors influence squared-error performance. These are baseline results, not a final model-selection claim.
+
+## Tree-model comparison
+
+- Compared Random Forest and CatBoost on the same chronological split and engineered features as the linear baseline. The final unlabeled validation set was not used for model selection.
+- Random Forest used median imputation for numeric inputs, one-hot encoding for categorical inputs, 300 trees, `max_features=0.5`, and `min_samples_leaf=2`.
+- CatBoost used native categorical handling for `pickup`, `delivery`, `equipment`, and `lane`, with 800 iterations, depth 8, and learning rate 0.05. Numeric missing values were left for CatBoost's native handling.
+- Both tree models use modeling copies where negative `weight` and `weight_per_mile` values are set to missing; the source features remain unchanged.
+
+| Model | Holdout MAE | Holdout RMSE | Holdout MAPE |
+|---|---:|---:|---:|
+| LinearRegression | $187.14 | $649.07 | 8.37% |
+| RandomForest | $139.19 | $655.53 | 6.07% |
+| CatBoost | **$131.57** | **$642.17** | 6.12% |
+
+- CatBoost is the current best by the primary metric, MAE, improving on the linear baseline by **$55.57 (29.7%)** and on Random Forest by **$7.62 (5.5%)**. It also has the lowest RMSE; Random Forest has marginally lower MAPE.
+- These are initial model settings, not tuned results. Keep CatBoost as the leading candidate and validate with rolling-origin splits before finalizing model selection.
+
+## Final fit on all labeled data
+
+- After selecting CatBoost from the chronological holdout comparison, refit it with the same initial settings on **all 48,000 labeled rows** in `train-test.csv`, including the former Sep-Oct holdout.
+- Generate `predicted_posted_rate` for all **12,000** rows in the separate unlabeled validation file, retaining `load_id` in `final_validation_predictions`.
+- As in the model comparison, negative `weight` values and derived `weight_per_mile` values are treated as missing in the model input copies; original datasets remain unchanged.
+- The final validation set has no target labels, so these predictions are not scored here. The holdout metrics above remain the model-selection estimate; the full-data model is for final inference.
